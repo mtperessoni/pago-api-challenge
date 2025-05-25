@@ -36,7 +36,7 @@ Você tem total liberdade para usar as demais bibliotecas que mais lhe fornecere
 
 Acaso você esteja utilizando este projeto como um meio de estudo, nós o aconselhamos a usar a biblioteca padrão para lidar com requisições web do Node.js, `http`.
 
-## Tempo proposto de conclusão e o que estamos avaliando
+## O que estamos avaliando
 
 Este teste busca avaliar as seguintes competências:
 
