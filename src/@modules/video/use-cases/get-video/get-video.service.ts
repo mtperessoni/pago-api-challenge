@@ -33,9 +33,7 @@ export class GetVideoService {
       const video =
         typeof cachedVideo.buffer === 'string'
           ? new Video({
-              filename: cachedVideo.filename,
-              size: cachedVideo.size,
-              mimetype: cachedVideo.mimetype,
+              ...cachedVideo,
               buffer: Buffer.from(cachedVideo.buffer),
             })
           : cachedVideo;

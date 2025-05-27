@@ -12,11 +12,11 @@ export class Video {
   public readonly buffer: Buffer;
   public readonly uploadDate: string;
 
-  constructor(props: VideoProps) {
-    this.filename = props.filename;
-    this.size = props.size;
-    this.mimetype = props.mimetype;
-    this.buffer = props.buffer;
+  constructor({ filename, size, mimetype, buffer }: VideoProps) {
+    this.filename = filename;
+    this.size = size;
+    this.mimetype = mimetype;
+    this.buffer = buffer;
     this.uploadDate = new Date().toISOString();
   }
 }
