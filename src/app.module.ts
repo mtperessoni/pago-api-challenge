@@ -1,7 +1,8 @@
+import { VideoUploaderModule } from '@/video/video-uploader.module';
 import { Module } from '@nestjs/common';
 
 @Module({
-  imports: [],
+  imports: [VideoUploaderModule],
   controllers: [],
   providers: [],
 })
