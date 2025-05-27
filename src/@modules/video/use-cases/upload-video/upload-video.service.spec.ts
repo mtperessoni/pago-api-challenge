@@ -22,7 +22,6 @@ describe('VideoUploadService', () => {
     mockCache = {
       get: jest.fn(),
       set: jest.fn(),
-      delete: jest.fn(),
       exists: jest.fn(),
     };
 
