@@ -2,7 +2,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { GetVideoService } from './get-video.service';
-import { ICache } from '../../domain/cache/cache.interface';
+import { IVideoCache } from '../../domain/cache/video-cache.interface';
 import { IStorage } from '../../domain/storage/storage.interface';
 import { Video } from '../../domain/video/video';
 import { Readable } from 'stream';
@@ -16,7 +16,7 @@ jest.mock('fs', () => ({
 
 describe('GetVideoService', () => {
   let service: GetVideoService;
-  let mockCache: jest.Mocked<ICache>;
+  let mockVideoCache: jest.Mocked<IVideoCache>;
   let mockStorage: jest.Mocked<IStorage>;
 
   const mockVideo = new Video({
@@ -33,10 +33,10 @@ describe('GetVideoService', () => {
   };
 
   beforeEach(async () => {
-    mockCache = {
-      get: jest.fn(),
-      set: jest.fn(),
-      exists: jest.fn(),
+    mockVideoCache = {
+      getVideo: jest.fn(),
+      setVideo: jest.fn(),
+      hasVideo: jest.fn(),
     };
 
     mockStorage = {
@@ -49,8 +49,8 @@ describe('GetVideoService', () => {
       providers: [
         GetVideoService,
         {
-          provide: 'CACHE_SERVICE',
-          useValue: mockCache,
+          provide: 'VIDEO_CACHE_SERVICE',
+          useValue: mockVideoCache,
         },
         {
           provide: 'STORAGE_SERVICE',
@@ -64,7 +64,9 @@ describe('GetVideoService', () => {
 
   describe('getVideo', () => {
     it('should return video stream from cache when video is cached', async () => {
-      const cacheGetSpy = jest.spyOn(mockCache, 'get').mockResolvedValueOnce(mockVideo);
+      const cacheGetVideoSpy = jest
+        .spyOn(mockVideoCache, 'getVideo')
+        .mockResolvedValueOnce(mockVideo);
       const storageStatsSpy = jest.spyOn(mockStorage, 'getStats');
 
       const result = await service.getVideo('test-video.mp4');
@@ -78,12 +80,12 @@ describe('GetVideoService', () => {
         }),
         mimetype: mockVideo.mimetype,
       });
-      expect(cacheGetSpy).toHaveBeenCalledWith('video:test-video.mp4');
+      expect(cacheGetVideoSpy).toHaveBeenCalledWith('test-video.mp4');
       expect(storageStatsSpy).not.toHaveBeenCalled();
     });
 
     it('should return video stream from storage when video is not in cache', async () => {
-      const cacheGetSpy = jest.spyOn(mockCache, 'get').mockResolvedValueOnce(null);
+      const cacheGetVideoSpy = jest.spyOn(mockVideoCache, 'getVideo').mockResolvedValueOnce(null);
       const storageStatsSpy = jest
         .spyOn(mockStorage, 'getStats')
         .mockResolvedValueOnce(mockFileStats);
@@ -99,23 +101,23 @@ describe('GetVideoService', () => {
         }),
         mimetype: mockFileStats.mimetype,
       });
-      expect(cacheGetSpy).toHaveBeenCalledWith('video:test-video.mp4');
+      expect(cacheGetVideoSpy).toHaveBeenCalledWith('test-video.mp4');
       expect(storageStatsSpy).toHaveBeenCalledWith('test-video.mp4');
     });
 
     it('should throw NotFoundException when video is not found in storage', async () => {
-      const cachecacheGetSpy = jest.spyOn(mockCache, 'get').mockResolvedValueOnce(null);
+      const cacheGetVideoSpy = jest.spyOn(mockVideoCache, 'getVideo').mockResolvedValueOnce(null);
       const storageStatsSpy = jest.spyOn(mockStorage, 'getStats').mockResolvedValueOnce(null);
 
       await expect(service.getVideo('non-existent.mp4')).rejects.toThrow(
         new NotFoundException('Video non-existent.mp4 not found'),
       );
-      expect(cachecacheGetSpy).toHaveBeenCalledWith('video:non-existent.mp4');
+      expect(cacheGetVideoSpy).toHaveBeenCalledWith('non-existent.mp4');
       expect(storageStatsSpy).toHaveBeenCalledWith('non-existent.mp4');
     });
 
     it('should handle range requests correctly', async () => {
-      mockCache.get.mockResolvedValueOnce(mockVideo);
+      mockVideoCache.getVideo.mockResolvedValueOnce(mockVideo);
       const rangeRequest = { start: 0, end: 10 };
 
       const result = await service.getVideo('test-video.mp4', rangeRequest);
@@ -132,7 +134,7 @@ describe('GetVideoService', () => {
     });
 
     it('should handle partial range requests (only start)', async () => {
-      mockCache.get.mockResolvedValueOnce(mockVideo);
+      mockVideoCache.getVideo.mockResolvedValueOnce(mockVideo);
       const rangeRequest = { start: 0 };
 
       const result = await service.getVideo('test-video.mp4', rangeRequest);
@@ -149,7 +151,7 @@ describe('GetVideoService', () => {
     });
 
     it('should handle partial range requests (only end)', async () => {
-      mockCache.get.mockResolvedValueOnce(mockVideo);
+      mockVideoCache.getVideo.mockResolvedValueOnce(mockVideo);
       const rangeRequest = { end: 10 };
 
       const result = await service.getVideo('test-video.mp4', rangeRequest);
@@ -171,7 +173,9 @@ describe('GetVideoService', () => {
         size: 1000,
         buffer: Buffer.from('invalid'),
       });
-      const cachecacheGetSpy = jest.spyOn(mockCache, 'get').mockResolvedValueOnce(invalidVideo);
+      const cacheGetVideoSpy = jest
+        .spyOn(mockVideoCache, 'getVideo')
+        .mockResolvedValueOnce(invalidVideo);
       const storageStatsSpy = jest
         .spyOn(mockStorage, 'getStats')
         .mockResolvedValueOnce(mockFileStats);
@@ -187,19 +191,19 @@ describe('GetVideoService', () => {
         }),
         mimetype: mockFileStats.mimetype,
       });
-      expect(cachecacheGetSpy).toHaveBeenCalledWith('video:test-video.mp4');
+      expect(cacheGetVideoSpy).toHaveBeenCalledWith('test-video.mp4');
       expect(storageStatsSpy).toHaveBeenCalledWith('test-video.mp4');
     });
 
     it('should handle storage getStats failure', async () => {
-      const cachecacheGetSpy = jest.spyOn(mockCache, 'get').mockResolvedValueOnce(null);
+      const cacheGetVideoSpy = jest.spyOn(mockVideoCache, 'getVideo').mockResolvedValueOnce(null);
       const storageStatsSpy = jest
         .spyOn(mockStorage, 'getStats')
         .mockRejectedValueOnce(new Error('Storage error'));
 
       await expect(service.getVideo('test-video.mp4')).rejects.toThrow('Storage error');
 
-      expect(cachecacheGetSpy).toHaveBeenCalledWith('video:test-video.mp4');
+      expect(cacheGetVideoSpy).toHaveBeenCalledWith('test-video.mp4');
       expect(storageStatsSpy).toHaveBeenCalledWith('test-video.mp4');
     });
   });

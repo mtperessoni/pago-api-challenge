@@ -1,14 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { VideoUploadService } from './upload-video.service';
-import { ICache } from '../../domain/cache/cache.interface';
+import { IVideoCache } from '../../domain/cache/video-cache.interface';
 import { IStorage } from '../../domain/storage/storage.interface';
 import { Video } from '../../domain/video/video';
 
 const CACHE_TTL = 3600;
 describe('VideoUploadService', () => {
   let service: VideoUploadService;
-  let mockCache: jest.Mocked<ICache>;
+  let mockVideoCache: jest.Mocked<IVideoCache>;
   let mockStorage: jest.Mocked<IStorage>;
 
   const mockVideo = new Video({
@@ -19,10 +19,10 @@ describe('VideoUploadService', () => {
   });
 
   beforeEach(async () => {
-    mockCache = {
-      get: jest.fn(),
-      set: jest.fn(),
-      exists: jest.fn(),
+    mockVideoCache = {
+      getVideo: jest.fn(),
+      setVideo: jest.fn(),
+      hasVideo: jest.fn(),
     };
 
     mockStorage = {
@@ -35,8 +35,8 @@ describe('VideoUploadService', () => {
       providers: [
         VideoUploadService,
         {
-          provide: 'CACHE_SERVICE',
-          useValue: mockCache,
+          provide: 'VIDEO_CACHE_SERVICE',
+          useValue: mockVideoCache,
         },
         {
           provide: 'STORAGE_SERVICE',
@@ -50,12 +50,12 @@ describe('VideoUploadService', () => {
 
   describe('processVideo', () => {
     it('should successfully process a valid video file', async () => {
-      const setSpy = jest.spyOn(mockCache, 'set');
+      const setVideoSpy = jest.spyOn(mockVideoCache, 'setVideo');
       const saveSpy = jest.spyOn(mockStorage, 'save');
 
       await service.processVideo(mockVideo);
 
-      expect(setSpy).toHaveBeenCalledWith(`video:${mockVideo.filename}`, mockVideo, CACHE_TTL);
+      expect(setVideoSpy).toHaveBeenCalledWith(mockVideo, CACHE_TTL);
       expect(saveSpy).toHaveBeenCalledWith(mockVideo.filename, mockVideo.buffer);
     });
 
@@ -88,13 +88,12 @@ describe('VideoUploadService', () => {
     });
 
     it('should store video with all its properties correctly', async () => {
-      const setSpy = jest.spyOn(mockCache, 'set');
+      const setVideoSpy = jest.spyOn(mockVideoCache, 'setVideo');
       const saveSpy = jest.spyOn(mockStorage, 'save');
 
       await service.processVideo(mockVideo);
 
-      expect(setSpy).toHaveBeenCalledWith(
-        `video:${mockVideo.filename}`,
+      expect(setVideoSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           filename: mockVideo.filename,
           size: mockVideo.size,
@@ -115,16 +114,12 @@ describe('VideoUploadService', () => {
         buffer: Buffer.from(''),
       });
 
-      const setSpy = jest.spyOn(mockCache, 'set');
+      const setVideoSpy = jest.spyOn(mockVideoCache, 'setVideo');
       const saveSpy = jest.spyOn(mockStorage, 'save');
 
       await service.processVideo(videoWithEmptyBuffer);
 
-      expect(setSpy).toHaveBeenCalledWith(
-        `video:${videoWithEmptyBuffer.filename}`,
-        videoWithEmptyBuffer,
-        CACHE_TTL,
-      );
+      expect(setVideoSpy).toHaveBeenCalledWith(videoWithEmptyBuffer, CACHE_TTL);
       expect(saveSpy).toHaveBeenCalledWith(
         videoWithEmptyBuffer.filename,
         videoWithEmptyBuffer.buffer,
@@ -133,34 +128,34 @@ describe('VideoUploadService', () => {
 
     it('should handle storage save failure', async () => {
       mockStorage.save.mockRejectedValueOnce(new Error('Storage error'));
-      const setSpy = jest.spyOn(mockCache, 'set');
+      const setVideoSpy = jest.spyOn(mockVideoCache, 'setVideo');
       const saveSpy = jest.spyOn(mockStorage, 'save');
 
       await expect(service.processVideo(mockVideo)).rejects.toThrow('Storage error');
 
-      expect(setSpy).toHaveBeenCalledWith(`video:${mockVideo.filename}`, mockVideo, CACHE_TTL);
+      expect(setVideoSpy).toHaveBeenCalledWith(mockVideo, CACHE_TTL);
       expect(saveSpy).toHaveBeenCalledWith(mockVideo.filename, mockVideo.buffer);
     });
 
     it('should handle cache set failure', async () => {
-      mockCache.set.mockRejectedValueOnce(new Error('Cache error'));
-      const setSpy = jest.spyOn(mockCache, 'set');
+      mockVideoCache.setVideo.mockRejectedValueOnce(new Error('Cache error'));
+      const setVideoSpy = jest.spyOn(mockVideoCache, 'setVideo');
       const saveSpy = jest.spyOn(mockStorage, 'save');
 
       await expect(service.processVideo(mockVideo)).rejects.toThrow('Cache error');
 
-      expect(setSpy).toHaveBeenCalledWith(`video:${mockVideo.filename}`, mockVideo, CACHE_TTL);
+      expect(setVideoSpy).toHaveBeenCalledWith(mockVideo, CACHE_TTL);
       expect(saveSpy).not.toHaveBeenCalled();
     });
 
     it('should handle concurrent uploads of the same video', async () => {
-      const setSpy = jest.spyOn(mockCache, 'set');
+      const setVideoSpy = jest.spyOn(mockVideoCache, 'setVideo');
       const saveSpy = jest.spyOn(mockStorage, 'save');
       const promises = [service.processVideo(mockVideo), service.processVideo(mockVideo)];
 
       await Promise.all(promises);
 
-      expect(setSpy).toHaveBeenCalledTimes(2);
+      expect(setVideoSpy).toHaveBeenCalledTimes(2);
       expect(saveSpy).toHaveBeenCalledTimes(2);
     });
   });

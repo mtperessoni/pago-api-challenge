@@ -1,10 +1,10 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { ICache } from '../../domain/cache/cache.interface';
 import { IStorage } from '../../domain/storage/storage.interface';
 import { Video } from '../../domain/video/video';
 import { VideoRange } from '../../domain/video/video-range';
 import { createReadStream } from 'fs';
 import { Readable } from 'stream';
+import { IVideoCache } from '../../domain/cache/video-cache.interface';
 
 interface RangeRequest {
   start?: number;
@@ -20,27 +20,17 @@ interface VideoStreamResponse {
 @Injectable()
 export class GetVideoService {
   constructor(
-    @Inject('CACHE_SERVICE')
-    private readonly cache: ICache,
+    @Inject('VIDEO_CACHE_SERVICE')
+    private readonly videoCache: IVideoCache,
     @Inject('STORAGE_SERVICE')
     private readonly storage: IStorage,
   ) {}
 
   async getVideo(filename: string, rangeRequest?: RangeRequest): Promise<VideoStreamResponse> {
-    const cachedVideo = await this.cache.get<Video>(`video:${filename}`);
+    const cachedVideo = await this.videoCache.getVideo(filename);
 
-    if (cachedVideo) {
-      const video =
-        typeof cachedVideo.buffer === 'string'
-          ? new Video({
-              ...cachedVideo,
-              buffer: Buffer.from(cachedVideo.buffer),
-            })
-          : cachedVideo;
-
-      if (this.hasValidBuffer(video)) {
-        return this.streamFromCache(video, rangeRequest);
-      }
+    if (cachedVideo && this.hasValidBuffer(cachedVideo)) {
+      return this.streamFromCache(cachedVideo, rangeRequest);
     }
     return this.streamFromStorage(filename, rangeRequest);
   }
