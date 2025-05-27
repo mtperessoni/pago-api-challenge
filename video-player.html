@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Video Streaming Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+        max-width: 600px;
+      }
+      label,
+      input,
+      button {
+        font-size: 1rem;
+        margin-bottom: 12px;
+        display: block;
+        width: 100%;
+      }
+      video {
+        margin-top: 20px;
+        width: 100%;
+        max-height: 360px;
+        background: black;
+      }
+      #log {
+        white-space: pre-wrap;
+        background: #eee;
+        padding: 10px;
+        margin-top: 20px;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Test Video Streaming API</h1>
+
+    <label for="videoUrl">Enter Video API URL:</label>
+    <input
+      type="url"
+      id="videoUrl"
+      placeholder="Video URL"
+      value="http://localhost:3000/static/video/pixverse2Fmedia2F04a503a2-3ad5-4e07-afa3-a594d807ab5b_seed570661027.mp4"
+    />
+    <button id="loadBtn">Load Video</button>
+    <button id="testRangeBtn">Test Partial Range Fetch (bytes 0-9999)</button>
+
+    <video id="videoPlayer" controls preload="none" crossorigin="anonymous">
+      <source id="videoSource" src="" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+
+    <div id="log"></div>
+
+    <script>
+      const loadBtn = document.getElementById('loadBtn');
+      const testRangeBtn = document.getElementById('testRangeBtn');
+      const videoUrlInput = document.getElementById('videoUrl');
+      const videoSource = document.getElementById('videoSource');
+      const videoPlayer = document.getElementById('videoPlayer');
+      const log = document.getElementById('log');
+
+      loadBtn.addEventListener('click', () => {
+        const url = videoUrlInput.value.trim();
+        if (!url) {
+          alert('Please enter a valid video URL');
+          return;
+        }
+        videoSource.src = url;
+        videoPlayer.load();
+        videoPlayer.play().catch(() => {
+          // Autoplay might be blocked by browser policy
+        });
+        log.textContent = 'Video loaded. Play the video to trigger range requests.\n';
+      });
+
+      testRangeBtn.addEventListener('click', async () => {
+        const url = videoUrlInput.value.trim();
+        if (!url) {
+          alert('Please enter a valid video URL');
+          return;
+        }
+        log.textContent = `Fetching first 10,000 bytes from:\n${url}\n\n`;
+
+        try {
+          const response = await fetch(url, {
+            headers: {
+              Range: 'bytes=0-9999',
+            },
+          });
+
+          log.textContent += `Status: ${response.status} ${response.statusText}\n`;
+          log.textContent += 'Response Headers:\n';
+          for (const [key, value] of response.headers.entries()) {
+            log.textContent += `${key}: ${value}\n`;
+          }
+
+          if (response.status === 206) {
+            log.textContent += '\nPartial content response confirmed!';
+          } else {
+            log.textContent += '\nDid not receive partial content response.';
+          }
+        } catch (error) {
+          log.textContent += `Error fetching range: ${error.message}`;
+        }
+      });
+
+      // Load video on page load automatically
+      window.addEventListener('load', () => {
+        loadBtn.click();
+      });
+    </script>
+  </body>
+</html>
